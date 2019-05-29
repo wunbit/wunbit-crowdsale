@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "chai": "^4.2.0",
+    "chai-bignumber": "^3.0.0",
     "concurrently": "^4.1.0",
     "coveralls": "^3.0.1",
     "eslint": "^4.19.1",
@@ -24,13 +25,15 @@
     "nodemon": "^1.19.0",
     "openzeppelin-docsite": "github:OpenZeppelin/openzeppelin-docsite#22388b7a891a6fcdd333efef9e4f7f584ae5b826",
     "openzeppelin-solidity": "^2.2.0",
-    "openzeppelin-test-helpers": "^0.4",
     "solhint": "^1.5.0",
     "solidity-coverage": "github:rotcivegaf/solidity-coverage#5875f5b7bc74d447f3312c9c0e9fc7814b482477",
     "solidity-docgen": "github:OpenZeppelin/solidity-docgen#03f42b5e271b1e1c1d0b814b921ecdc086055255",
-    "truffle": "^5.0.18"
+    "truffle": "^5.0.18",
+    "web3": "^1.0.0-beta.55"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "openzeppelin-test-helpers": "^0.4.0"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
