@@ -2,8 +2,10 @@ pragma solidity ^0.5.2;
 
 import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-solidity/contracts/token/ERC20/ERC20Detailed.sol";
+import "openzeppelin-solidity/contracts/token/ERC20/ERC20Mintable.sol";
+import "openzeppelin-solidity/contracts/token/ERC20/ERC20Pausable.sol";
 
-contract WunbitToken is ERC20, ERC20Detailed {
+contract WunbitToken is ERC20, ERC20Detailed, ERC20Mintable, ERC20Pausable {
   constructor (
     string memory name,
     string memory symbol,
@@ -11,5 +13,5 @@ contract WunbitToken is ERC20, ERC20Detailed {
   )
     ERC20Detailed(name, symbol, decimals)
     public
-  {}
+    {}
 }
