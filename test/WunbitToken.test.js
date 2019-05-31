@@ -1,9 +1,10 @@
-const { BN } = require('openzeppelin-test-helpers');
-
-const WunbitToken = artifacts.require('WunbitToken');
+// Import all required modules from openzeppelin-test-helpers
+const { BN, constants, expectEvent, expectRevert } = require('openzeppelin-test-helpers');
 
 require('chai')
   .should();
+
+const WunbitToken = artifacts.require('WunbitToken');
 
 contract('WunbitToken', accounts => {
   const _name = 'Wunbit Token';
