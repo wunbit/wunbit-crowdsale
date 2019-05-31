@@ -1,18 +1,16 @@
-pragma solidity ^0.5.2;
+pragma solidity ^0.4.25;
 
-import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
-import "openzeppelin-solidity/contracts/token/ERC20/ERC20Detailed.sol";
-import "openzeppelin-solidity/contracts/token/ERC20/ERC20Mintable.sol";
-import "openzeppelin-solidity/contracts/token/ERC20/ERC20Pausable.sol";
-import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
+import "openzeppelin-solidity/contracts/token/ERC20/DetailedERC20.sol";
+import "openzeppelin-solidity/contracts/token/ERC20/MintableToken.sol";
+import "openzeppelin-solidity/contracts/token/ERC20/PausableToken.sol";
 
-contract WunbitToken is ERC20, ERC20Detailed, ERC20Mintable, ERC20Pausable, Ownable {
+contract WunbitToken is MintableToken, PausableToken, DetailedERC20 {
   constructor (
-    string memory name,
-    string memory symbol,
-    uint8 decimals
+    string _name,
+    string _symbol,
+    uint8 _decimals
   )
-    ERC20Detailed(name, symbol, decimals)
+    DetailedERC20(_name, _symbol, _decimals)
     public
     {}
 }

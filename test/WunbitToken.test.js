@@ -1,15 +1,16 @@
 // Import all required modules from openzeppelin-test-helpers
-const { BN, constants, expectEvent, expectRevert } = require('openzeppelin-test-helpers');
-
-require('chai')
-  .should();
+const BigNumber = web3.BigNumber;
 
 const WunbitToken = artifacts.require('WunbitToken');
+
+require('chai')
+  .use(require('chai-bignumber')(BigNumber))
+  .should();
 
 contract('WunbitToken', accounts => {
   const _name = 'Wunbit Token';
   const _symbol = 'WUN';
-  const _decimals = new BN(18);
+  const _decimals = 18;
 
   beforeEach(async function() {
     this.token = await WunbitToken.new(_name, _symbol, _decimals);

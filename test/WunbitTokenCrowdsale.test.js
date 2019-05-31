@@ -1,8 +1,10 @@
-// Import all required modules from openzeppelin-test-helpers
-const { balance, BN, constants, ether, expectEvent, shouldFail } = require('openzeppelin-test-helpers');
+import ether from './helpers/ether';
+
+const BigNumber = web3.BigNumber;
 
 require('chai')
   .use(require('chai-as-promised'))
+  .use(require('chai-bignumber')(BigNumber))
   .should();
 
 const WunbitTokenCrowdsale = artifacts.require('WunbitTokenCrowdsale');
@@ -14,7 +16,7 @@ contract('WunbitTokenCrowdsale', function([_, wallet, investor1, investor2]) {
     // Token Config
     this.name = "Wunbit Token";
     this.symbol = 'WUN';
-    this.decimals = new BN(18);
+    this.decimals = 18;
 
     // Deploy Token
     this.token = await WunbitToken.new(
@@ -24,7 +26,7 @@ contract('WunbitTokenCrowdsale', function([_, wallet, investor1, investor2]) {
     );
 
     // Crowdsale Config
-    this.rate = new BN(17912);
+    this.rate = 17912;
     this.wallet = wallet;
 
     //Deploy Crowdsale
@@ -55,16 +57,21 @@ contract('WunbitTokenCrowdsale', function([_, wallet, investor1, investor2]) {
     });
   });
 
+  describe('minted crowdsale', function() {
+    it('mints tokens after purchase', async function() {
+      const originalTotalSupply = await this.token.totalSupply();
+      await this.crowdsale.sendTransaction({ value: ether(1), from: investor1 });
+      const newTotalSupply = await this.token.totalSupply();
+      assert.isTrue(newTotalSupply > originalTotalSupply);
+    });
+  });
+
   describe('accepting payments', function() {
     it('should accept payments', async function() {
-      const value = await ether(new BN(1));
+      const value = ether(1);
       const purchaser = investor2;
-      await web3.eth.sendTransaction({
-        from: investor1,
-        to: this.crowdsale.address,
-        value: value,
-        gas: 4712388
-      }).should.be.fulfilled;
+      await this.crowdsale.sendTransaction({ value: value, from: investor1 }).should.be.fulfilled;
+      await this.crowdsale.buyTokens(investor1, { value: value, from: purchaser }).should.be.fulfilled;
     });
   });
 });

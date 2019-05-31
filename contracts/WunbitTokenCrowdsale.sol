@@ -1,20 +1,17 @@
-pragma solidity ^0.5.2;
+pragma solidity ^0.4.25;
 
 import "openzeppelin-solidity/contracts/crowdsale/Crowdsale.sol";
 import "openzeppelin-solidity/contracts/crowdsale/emission/MintedCrowdsale.sol";
 
 contract WunbitTokenCrowdsale is Crowdsale, MintedCrowdsale {
   constructor(
-    uint256 rate,
-    address payable wallet,
-    IERC20 token
+    uint256 _rate,
+    address _wallet,
+    ERC20 _token
   )
 
-  Crowdsale(rate, wallet, token)
+  Crowdsale(_rate, _wallet, _token)
   public
   {
-  }
-
-  function() external payable{
   }
 }
