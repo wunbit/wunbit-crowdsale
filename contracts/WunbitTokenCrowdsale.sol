@@ -3,8 +3,9 @@ pragma solidity ^0.4.25;
 import "openzeppelin-solidity/contracts/crowdsale/Crowdsale.sol";
 import "openzeppelin-solidity/contracts/crowdsale/emission/MintedCrowdsale.sol";
 import "openzeppelin-solidity/contracts/crowdsale/validation/CappedCrowdsale.sol";
+import "openzeppelin-solidity/contracts/crowdsale/validation/TimedCrowdsale.sol";
 
-contract WunbitTokenCrowdsale is Crowdsale, MintedCrowdsale, CappedCrowdsale {
+contract WunbitTokenCrowdsale is Crowdsale, MintedCrowdsale, CappedCrowdsale, TimedCrowdsale {
 
   // Track contributor constributions
   uint256 public contributorMinCap = 38000000000000000; // 10 USD - 0.038
@@ -15,11 +16,14 @@ contract WunbitTokenCrowdsale is Crowdsale, MintedCrowdsale, CappedCrowdsale {
     uint256 _rate,
     address _wallet,
     ERC20 _token,
-    uint256 _cap
+    uint256 _cap,
+    uint256 _openingTime,
+    uint256 _closingTime
   )
 
   Crowdsale(_rate, _wallet, _token)
   CappedCrowdsale(_cap)
+  TimedCrowdsale(_openingTime, _closingTime)
   public
   {
   }

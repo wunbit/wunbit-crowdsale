@@ -1,5 +1,7 @@
 import ether from './helpers/ether';
 import EVMRevert from './helpers/EVMRevert';
+import { increaseTimeTo, duration } from './helpers/increaseTime';
+import latestTime from './helpers/latestTime';
 
 const BigNumber = web3.BigNumber;
 
@@ -30,6 +32,8 @@ contract('WunbitTokenCrowdsale', function([_, wallet, contributor1, contributor2
     this.rate = 17912;
     this.wallet = wallet;
     this.cap = ether(62021);
+    this.openingTime = latestTime() + duration.weeks(1);
+    this.closingTime = this.openingTime + duration.weeks(1);
 
     // contributor Caps
     this.contributorMinCap = ether(0.038);
@@ -40,11 +44,16 @@ contract('WunbitTokenCrowdsale', function([_, wallet, contributor1, contributor2
       this.rate,
       this.wallet,
       this.token.address,
-      this.cap
+      this.cap,
+      this.openingTime,
+      this.closingTime
     );
 
   // Transfer token ownership to crowdsale
     await this.token.transferOwnership(this.crowdsale.address);
+
+  // Advance time to crowdsale start
+  await increaseTimeTo(this.openingTime + 1);
   });
 
   describe ('crowdsale', function() {
@@ -77,6 +86,13 @@ contract('WunbitTokenCrowdsale', function([_, wallet, contributor1, contributor2
     it('has the correct hard cap', async function() {
       const cap = await this.crowdsale.cap();
       cap.should.be.bignumber.equal(this.cap);
+    });
+  });
+
+  describe('timed crowdsale', function() {
+    it('is open', async function() {
+      const isClosed = await this.crowdsale.hasClosed();
+      isClosed.should.be.false;
     });
   });
 
