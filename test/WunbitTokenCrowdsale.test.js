@@ -1,4 +1,5 @@
 import ether from './helpers/ether';
+import EVMRevert from './helpers/EVMRevert';
 
 const BigNumber = web3.BigNumber;
 
@@ -10,7 +11,7 @@ require('chai')
 const WunbitTokenCrowdsale = artifacts.require('WunbitTokenCrowdsale');
 const WunbitToken = artifacts.require('WunbitToken');
 
-contract('WunbitTokenCrowdsale', function([_, wallet, investor1, investor2]) {
+contract('WunbitTokenCrowdsale', function([_, wallet, contributor1, contributor2]) {
 
   beforeEach(async function() {
     // Token Config
@@ -22,18 +23,24 @@ contract('WunbitTokenCrowdsale', function([_, wallet, investor1, investor2]) {
     this.token = await WunbitToken.new(
       this.name,
       this.symbol,
-      this.decimals
+      this.decimals,
     );
 
     // Crowdsale Config
     this.rate = 17912;
     this.wallet = wallet;
+    this.cap = ether(62021);
+
+    // contributor Caps
+    this.contributorMinCap = ether(0.038);
+    this.contributorHardCap = ether(381.08);
 
     //Deploy Crowdsale
     this.crowdsale = await WunbitTokenCrowdsale.new(
       this.rate,
       this.wallet,
-      this.token.address
+      this.token.address,
+      this.cap
     );
 
   // Transfer token ownership to crowdsale
@@ -60,18 +67,65 @@ contract('WunbitTokenCrowdsale', function([_, wallet, investor1, investor2]) {
   describe('minted crowdsale', function() {
     it('mints tokens after purchase', async function() {
       const originalTotalSupply = await this.token.totalSupply();
-      await this.crowdsale.sendTransaction({ value: ether(1), from: investor1 });
+      await this.crowdsale.sendTransaction({ value: ether(1), from: contributor1 });
       const newTotalSupply = await this.token.totalSupply();
       assert.isTrue(newTotalSupply > originalTotalSupply);
+    });
+  });
+
+  describe('capped crowdsale', function() {
+    it('has the correct hard cap', async function() {
+      const cap = await this.crowdsale.cap();
+      cap.should.be.bignumber.equal(this.cap);
     });
   });
 
   describe('accepting payments', function() {
     it('should accept payments', async function() {
       const value = ether(1);
-      const purchaser = investor2;
-      await this.crowdsale.sendTransaction({ value: value, from: investor1 }).should.be.fulfilled;
-      await this.crowdsale.buyTokens(investor1, { value: value, from: purchaser }).should.be.fulfilled;
+      const purchaser = contributor2;
+      await this.crowdsale.sendTransaction({ value: value, from: contributor1 }).should.be.fulfilled;
+      await this.crowdsale.buyTokens(contributor1, { value: value, from: purchaser }).should.be.fulfilled;
+    });
+  });
+
+  describe('buy tokens', function() {
+    describe('when the contribution is less than the minimum cap', function () {
+        it('rejects the transaction', async function (){
+          const value = this.contributorMinCap.minus(1);
+          await this.crowdsale.buyTokens(contributor2, { value: value, from: contributor2 }).should.be.rejectedWith(EVMRevert);
+        })
+    });
+
+    describe('when the contributor has already met the minimum cap', function () {
+        it('allows the contributor to contribute below the minimum cap', async function (){
+          // First contribution is valid
+          const value1 = ether(1);
+          await this.crowdsale.buyTokens(contributor1, { value: value1, from: contributor1 });
+          // Second contribution is less than contributor cap
+          const value2 = 1; // wei
+          await this.crowdsale.buyTokens(contributor1, { value: value2, from: contributor1 }).should.be.fulfilled;
+        });
+    });
+
+    describe('when the total contribution exceed the contributor hard cap', function () {
+        it('rejects the transaction', async function (){
+          // First contribution is in valid range
+          const value1 = ether(1);
+          await this.crowdsale.buyTokens(contributor1, { value: value1, from: contributor1 });
+          // Second contribution sends total contributions over the contributor hard cap
+          const value2 = ether(390);
+          await this.crowdsale.buyTokens(contributor1, { value: value2, from: contributor1 }).should.be.rejectedWith(EVMRevert);
+        });
+    });
+
+    describe('when the total contribution is wihtin valid range', function () {
+      const value = ether(2);
+      it('succeeds & updates the contribution amount', async function() {
+        await this.crowdsale.buyTokens(contributor2, { value: value, from: contributor2 }).should.be.fulfilled;
+        const contribution = await this.crowdsale.getUserContribution(contributor2);
+        contribution.should.be.bignumber.equal(value);
+      });
     });
   });
 });
