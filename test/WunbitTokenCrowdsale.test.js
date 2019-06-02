@@ -12,6 +12,7 @@ require('chai')
 
 const WunbitTokenCrowdsale = artifacts.require('WunbitTokenCrowdsale');
 const WunbitToken = artifacts.require('WunbitToken');
+const RefundVault = artifacts.require('./RefundVault');
 
 contract('WunbitTokenCrowdsale', function([_, wallet, contributor1, contributor2]) {
 
@@ -31,22 +32,24 @@ contract('WunbitTokenCrowdsale', function([_, wallet, contributor1, contributor2
     // Crowdsale Config
     this.rate = 17912;
     this.wallet = wallet;
-    this.cap = ether(62021);
+    this.cap = ether(60572);
     this.openingTime = latestTime() + duration.weeks(1);
     this.closingTime = this.openingTime + duration.weeks(1);
+    this.goal = ether(6057);
 
     // contributor Caps
     this.contributorMinCap = ether(0.038);
     this.contributorHardCap = ether(381.08);
 
     //Deploy Crowdsale
-    this.crowdsale = await WunbitTokenCrowdsale.new(
+      this.crowdsale = await WunbitTokenCrowdsale.new(
       this.rate,
       this.wallet,
       this.token.address,
       this.cap,
       this.openingTime,
-      this.closingTime
+      this.closingTime,
+      this.goal
     );
 
   // Transfer token ownership to crowdsale
@@ -54,6 +57,10 @@ contract('WunbitTokenCrowdsale', function([_, wallet, contributor1, contributor2
 
   // Add contributors to Whitelist
   await this.crowdsale.addManyToWhitelist([contributor1, contributor2]);
+
+  // Track refund vault
+  this.vaultAddress = await this.crowdsale.vault();
+  this.vault = RefundVault.at(this.vaultAddress);
 
   // Advance time to crowdsale start
   await increaseTimeTo(this.openingTime + 1);
@@ -103,6 +110,18 @@ contract('WunbitTokenCrowdsale', function([_, wallet, contributor1, contributor2
     it('rejects contributions from non-whitelisted contributors', async function() {
       const notWhitelisted = _;
       await this.crowdsale.buyTokens(notWhitelisted, { value: ether(1), from: notWhitelisted }).should.be.rejectedWith(EVMRevert);
+    });
+  });
+
+  describe('refundable crowdsale', function() {
+    beforeEach(async function() {
+      await this.crowdsale.buyTokens(contributor1, { value: ether(1), from: contributor1 });
+    });
+
+    describe('during crowdsale', function() {
+      it('prevents the contributor from claiming refund', async function() {
+        await this.vault.refund(contributor1, { from: contributor1 }).should.be.rejectedWith(EVMRevert);
+      });
     });
   });
 
