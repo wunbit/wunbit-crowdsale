@@ -1,5 +1,8 @@
 pragma solidity ^0.4.25;
 
+import "openzeppelin-solidity/contracts/token/ERC20/DetailedERC20.sol";
+import "openzeppelin-solidity/contracts/token/ERC20/MintableToken.sol";
+import "openzeppelin-solidity/contracts/token/ERC20/PausableToken.sol";
 import "openzeppelin-solidity/contracts/crowdsale/Crowdsale.sol";
 import "openzeppelin-solidity/contracts/crowdsale/emission/MintedCrowdsale.sol";
 import "openzeppelin-solidity/contracts/crowdsale/validation/CappedCrowdsale.sol";
@@ -10,9 +13,14 @@ import "openzeppelin-solidity/contracts/crowdsale/distribution/RefundableCrowdsa
 contract WunbitTokenCrowdsale is Crowdsale, MintedCrowdsale, CappedCrowdsale, TimedCrowdsale, WhitelistedCrowdsale, RefundableCrowdsale {
 
   // Track contributor constributions
-  uint256 public contributorMinCap = 38000000000000000; // 10 USD - 0.038
-  uint256 public contributorHardCap = 381080000000000000000; // 100000 USD - 381.08
+  uint256 public contributorMinCap = 2000000000000000; // 0.002 ether
+  uint256 public contributorHardCap = 50000000000000000000; // 50 ether
   mapping(address => uint256) public contributions;
+
+  // Crowdsale stages
+  enum CrowdsaleStage { PreSale, PublicSale }
+  // Presale, Public Sale
+  CrowdsaleStage public stage = CrowdsaleStage.PreSale;
 
   constructor(
     uint256 _rate,
@@ -36,12 +44,41 @@ contract WunbitTokenCrowdsale is Crowdsale, MintedCrowdsale, CappedCrowdsale, Ti
   /**
   * @dev Returns the amount contributed so far by a specifci contributor
   * @param _beneficiary Address of the contributor
-  & @return User contributions so far
+  * @return User contributions so far
   */
   function getUserContribution(address _beneficiary)
     public view returns (uint256)
   {
       return contributions[_beneficiary];
+  }
+
+  /**
+  * @dev Allows admin to update the crowdsale stage
+  * @param _stage Crowdsale stage
+  */
+  function setCrowdsaleStage(uint _stage) public onlyOwner {
+    if(uint(CrowdsaleStage.PreSale) == _stage) {
+      stage = CrowdsaleStage.PreSale;
+    } else if(uint(CrowdsaleStage.PublicSale) == _stage) {
+      stage = CrowdsaleStage.PublicSale;
+    }
+
+    if(stage == CrowdsaleStage.PreSale) {
+      rate = 500;
+    } else if (stage == CrowdsaleStage.PublicSale) {
+      rate = 250;
+    }
+  }
+
+  /**
+   * @dev forwards funds to the wallet during the presale stage, tren the refund vault during the public sale stage.
+   */
+  function _forwardFunds() internal {
+    if(stage == CrowdsaleStage.PreSale) {
+      wallet.transfer(msg.value);
+    } else if (stage == CrowdsaleStage.PublicSale) {
+      super._forwardFunds();
+    }
   }
 
   /**
@@ -63,5 +100,19 @@ contract WunbitTokenCrowdsale is Crowdsale, MintedCrowdsale, CappedCrowdsale, Ti
     contributions[_beneficiary] = _newContribution;
    }
 
+   /**
+   * @dev Enables token transfers, called when owner calls finalize()
+   */
+   function finalization() internal {
+     if(goalReached()) {
+       MintableToken _mintableToken = MintableToken(token);
+       // Do more stuff for founders, partners
+       _mintableToken.finishMinting();
+       // Unpause the token
+       PausableToken(token).unpause();
+     }
+
+     super.finalization();
+   }
 
 }
