@@ -13,8 +13,9 @@ require('chai')
 const WunbitTokenCrowdsale = artifacts.require('WunbitTokenCrowdsale');
 const WunbitToken = artifacts.require('WunbitToken');
 const RefundVault = artifacts.require('./RefundVault');
+const TokenTimelock = artifacts.require('./TokenTimelock')
 
-contract('WunbitTokenCrowdsale', function([_, wallet, contributor1, contributor2]) {
+contract('WunbitTokenCrowdsale', function([_, wallet, contributor1, contributor2, foundersFund, advisorsFund, partnersFund]) {
 
   before(async function() {
     // Transfer extra ether to contributor1 account for testing
@@ -41,6 +42,10 @@ contract('WunbitTokenCrowdsale', function([_, wallet, contributor1, contributor2
     this.openingTime = latestTime() + duration.weeks(1);
     this.closingTime = this.openingTime + duration.weeks(1);
     this.goal = ether(50);
+    this.foundersFund = foundersFund;
+    this.advisorsFund = advisorsFund;
+    this.partnersFund = partnersFund;
+    this.releaseTime = this.closingTime + duration.years(1);
 
     // Contributor Caps
     this.contributorMinCap = ether(0.002);
@@ -53,13 +58,10 @@ contract('WunbitTokenCrowdsale', function([_, wallet, contributor1, contributor2
     this.publicSaleRate = 250;
 
     // Token Distribution
-    this.foundersPercentage  = 3;
-    this.advisorsPercentage  = 3;
-    this.partnersPercentage  = 3;
-    this.teamPercentage      = 8;
-    this.marketingPercentage = 8;
-    this.companyPercentage   = 15;
-    this.tokenSalePercentage = 60;
+    this.tokenSalePercentage = 70;
+    this.foundersPercentage  = 10;
+    this.advisorsPercentage  = 10;
+    this.partnersPercentage  = 10;
 
     //Deploy Crowdsale
     this.crowdsale = await WunbitTokenCrowdsale.new(
@@ -69,11 +71,15 @@ contract('WunbitTokenCrowdsale', function([_, wallet, contributor1, contributor2
       this.cap,
       this.openingTime,
       this.closingTime,
-      this.goal
+      this.goal,
+      this.foundersFund,
+      this.advisorsFund,
+      this.partnersFund,
+      this.releaseTime
     );
 
-    // Pause the token
-    await this.token.pause();
+  // Pause the token
+  await this.token.pause();
 
   // Transfer token ownership to crowdsale
   await this.token.transferOwnership(this.crowdsale.address);
@@ -300,6 +306,88 @@ contract('WunbitTokenCrowdsale', function([_, wallet, contributor1, contributor2
           const paused = await this.token.paused();
           paused.should.be.false;
 
+          // Enable tokens transfers
+          await this.token.transfer(contributor2, 1, { from: contributor2 }).should.be.fulfilled;
+
+          let totalSupply = await this.token.totalSupply();
+          totalSupply = totalSupply.toString();
+
+          // Founders
+          const foundersTimelockAddress = await this.crowdsale.foundersTimelock();
+          let foundersTimelockBalance = await this.token.balanceOf(foundersTimelockAddress);
+          foundersTimelockBalance = foundersTimelockBalance.toString();
+          foundersTimelockBalance = foundersTimelockBalance / (10 ** this.decimals);
+
+          let foundersAmount = totalSupply / this.foundersPercentage;
+          foundersAmount = foundersAmount.toString();
+          foundersAmount = foundersAmount / (10 ** this.decimals);
+
+          assert.equal(foundersTimelockBalance.toString(), foundersAmount.toString());
+
+          // Advisors
+          const advisorsTimelockAddress = await this.crowdsale.advisorsTimelock();
+          let advisorsTimelockBalance = await this.token.balanceOf(advisorsTimelockAddress);
+          advisorsTimelockBalance = advisorsTimelockBalance.toString();
+          advisorsTimelockBalance = advisorsTimelockBalance / (10 ** this.decimals);
+
+          let advisorsAmount = totalSupply / this.advisorsPercentage;
+          advisorsAmount = advisorsAmount.toString();
+          advisorsAmount = advisorsAmount / (10 ** this.decimals);
+
+          assert.equal(advisorsTimelockBalance.toString(), advisorsAmount.toString());
+
+          // Partners
+          const partnersTimelockAddress = await this.crowdsale.partnersTimelock();
+          let partnersTimelockBalance = await this.token.balanceOf(partnersTimelockAddress);
+          partnersTimelockBalance = partnersTimelockBalance.toString();
+          partnersTimelockBalance = partnersTimelockBalance / (10 ** this.decimals);
+
+          let partnersAmount = totalSupply / this.partnersPercentage;
+          partnersAmount = partnersAmount.toString();
+          partnersAmount = partnersAmount / (10 ** this.decimals);
+
+          assert.equal(partnersTimelockBalance.toString(), partnersAmount.toString());
+
+          // Cannot withdraw from timelocks
+          const foundersTimelock = await TokenTimelock.at(foundersTimelockAddress);
+          await foundersTimelock.release().should.be.rejectedWith(EVMRevert);
+
+          const advisorsTimelock = await TokenTimelock.at(advisorsTimelockAddress);
+          await advisorsTimelock.release().should.be.rejectedWith(EVMRevert);
+
+          const partnersTimelock = await TokenTimelock.at(partnersTimelockAddress);
+          await partnersTimelock.release().should.be.rejectedWith(EVMRevert);
+
+          // Can withdraw from timelocks
+          await increaseTimeTo(this.releaseTime + 1);
+
+          await foundersTimelock.release().should.be.fulfilled;
+          await advisorsTimelock.release().should.be.fulfilled;
+          await partnersTimelock.release().should.be.fulfilled;
+
+          // Funds now have balances
+
+          // Founders
+          let foundersBalance = await this.token.balanceOf(this.foundersFund);
+          foundersBalance = foundersBalance.toString();
+          foundersBalance = foundersBalance / (10 ** this.decimals);
+
+          assert.equal(foundersBalance.toString(), foundersAmount.toString());
+
+          // Advisors
+          let advisorsBalance = await this.token.balanceOf(this.advisorsFund);
+          advisorsBalance = advisorsBalance.toString();
+          advisorsBalance = advisorsBalance / (10 ** this.decimals);
+
+          assert.equal(advisorsBalance.toString(), advisorsAmount.toString());
+
+          // Partners
+          let partnersBalance = await this.token.balanceOf(this.partnersFund);
+          partnersBalance = partnersBalance.toString();
+          partnersBalance = partnersBalance / (10 ** this.decimals);
+
+          assert.equal(partnersBalance.toString(), partnersAmount.toString());
+
           // Transfers ownership to the wallet
           const owner = await this.token.owner();
           owner.should.equal(this.wallet);
@@ -318,12 +406,6 @@ contract('WunbitTokenCrowdsale', function([_, wallet, contributor1, contributor2
       advisorsPercentage.should.be.bignumber.equal(this.advisorsPercentage, 'has correct advisorsPercentage');
       const partnersPercentage = await this.crowdsale.partnersPercentage();
       partnersPercentage.should.be.bignumber.equal(this.partnersPercentage, 'has correct partnersPercentage');
-      const teamPercentage = await this.crowdsale.teamPercentage();
-      teamPercentage.should.be.bignumber.equal(this.teamPercentage, 'has correct teamPercentage');
-      const marketingPercentage = await this.crowdsale.marketingPercentage();
-      marketingPercentage.should.be.bignumber.equal(this.marketingPercentage, 'has correct marketingPercentage');
-      const companyPercentage = await this.crowdsale.companyPercentage();
-      companyPercentage.should.be.bignumber.equal(this.companyPercentage, 'has correct companyPercentage');
       const tokenSalePercentage = await this.crowdsale.tokenSalePercentage();
       tokenSalePercentage.should.be.bignumber.equal(this.tokenSalePercentage, 'has correct tokenSalePercentage');
     });
@@ -332,12 +414,9 @@ contract('WunbitTokenCrowdsale', function([_, wallet, contributor1, contributor2
       const foundersPercentage = await this.crowdsale.foundersPercentage();
       const advisorsPercentage = await this.crowdsale.advisorsPercentage();
       const partnersPercentage = await this.crowdsale.partnersPercentage();
-      const teamPercentage = await this.crowdsale.teamPercentage();
-      const marketingPercentage = await this.crowdsale.marketingPercentage();
-      const companyPercentage = await this.crowdsale.companyPercentage();
       const tokenSalePercentage = await this.crowdsale.tokenSalePercentage();
 
-      const total = foundersPercentage.toNumber() + advisorsPercentage.toNumber() + partnersPercentage.toNumber() + teamPercentage.toNumber() + marketingPercentage.toNumber() + companyPercentage.toNumber() + tokenSalePercentage.toNumber();
+      const total = foundersPercentage.toNumber() + advisorsPercentage.toNumber() + partnersPercentage.toNumber() + tokenSalePercentage.toNumber();
       total.should.equal(100);
     });
   });

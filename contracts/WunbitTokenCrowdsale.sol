@@ -2,6 +2,7 @@ pragma solidity ^0.4.25;
 
 import "openzeppelin-solidity/contracts/token/ERC20/DetailedERC20.sol";
 import "openzeppelin-solidity/contracts/token/ERC20/MintableToken.sol";
+import "openzeppelin-solidity/contracts/token/ERC20/TokenTimeLock.sol";
 import "openzeppelin-solidity/contracts/token/ERC20/PausableToken.sol";
 import "openzeppelin-solidity/contracts/crowdsale/Crowdsale.sol";
 import "openzeppelin-solidity/contracts/crowdsale/emission/MintedCrowdsale.sol";
@@ -23,13 +24,21 @@ contract WunbitTokenCrowdsale is Crowdsale, MintedCrowdsale, CappedCrowdsale, Ti
   CrowdsaleStage public stage = CrowdsaleStage.PreSale;
 
   // Token Distribution
-  uint256 public foundersPercentage  = 3;
-  uint256 public advisorsPercentage  = 3;
-  uint256 public partnersPercentage  = 3;
-  uint256 public teamPercentage      = 8;
-  uint256 public marketingPercentage = 8;
-  uint256 public companyPercentage   = 15;
-  uint256 public tokenSalePercentage = 60;
+  uint256 public tokenSalePercentage = 70;
+  uint256 public foundersPercentage  = 10;
+  uint256 public advisorsPercentage  = 10;
+  uint256 public partnersPercentage  = 10;
+
+  // Token reserve funds
+  address public foundersFund;
+  address public advisorsFund;
+  address public partnersFund;
+
+  // Token time lock
+  uint256 public releaseTime;
+  address public foundersTimelock;
+  address public advisorsTimelock;
+  address public partnersTimelock;
 
   constructor(
     uint256 _rate,
@@ -38,7 +47,11 @@ contract WunbitTokenCrowdsale is Crowdsale, MintedCrowdsale, CappedCrowdsale, Ti
     uint256 _cap,
     uint256 _openingTime,
     uint256 _closingTime,
-    uint256 _goal
+    uint256 _goal,
+    address _foundersFund,
+    address _advisorsFund,
+    address _partnersFund,
+    uint256 _releaseTime
   )
 
   Crowdsale(_rate, _wallet, _token)
@@ -48,6 +61,10 @@ contract WunbitTokenCrowdsale is Crowdsale, MintedCrowdsale, CappedCrowdsale, Ti
   public
   {
     require(_goal <= _cap);
+    foundersFund = _foundersFund;
+    advisorsFund = _advisorsFund;
+    partnersFund = _partnersFund;
+    releaseTime = _releaseTime;
   }
 
   /**
@@ -115,6 +132,19 @@ contract WunbitTokenCrowdsale is Crowdsale, MintedCrowdsale, CappedCrowdsale, Ti
    function finalization() internal {
      if(goalReached()) {
        MintableToken _mintableToken = MintableToken(token);
+       uint256 _alreadyMinted = _mintableToken.totalSupply();
+
+       uint256 _finalTotalSupply = _alreadyMinted.div(tokenSalePercentage).mul(100);
+
+       foundersTimelock  = new TokenTimelock(token, foundersFund, releaseTime);
+       advisorsTimelock  = new TokenTimelock(token, advisorsFund, releaseTime);
+       partnersTimelock  = new TokenTimelock(token, partnersFund, releaseTime);
+
+       // Mint tokens for founders
+       _mintableToken.mint(foundersTimelock, _finalTotalSupply.div(foundersPercentage));
+       _mintableToken.mint(advisorsTimelock, _finalTotalSupply.div(advisorsPercentage));
+       _mintableToken.mint(partnersTimelock, _finalTotalSupply.div(partnersPercentage));
+
        // Distribute tokens...
        _mintableToken.finishMinting();
        // Unpause the token
