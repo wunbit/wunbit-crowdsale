@@ -52,6 +52,15 @@ contract('WunbitTokenCrowdsale', function([_, wallet, contributor1, contributor2
     this.publicSaleStage = 1;
     this.publicSaleRate = 250;
 
+    // Token Distribution
+    this.foundersPercentage  = 3;
+    this.advisorsPercentage  = 3;
+    this.partnersPercentage  = 3;
+    this.teamPercentage      = 8;
+    this.marketingPercentage = 8;
+    this.companyPercentage   = 15;
+    this.tokenSalePercentage = 60;
+
     //Deploy Crowdsale
     this.crowdsale = await WunbitTokenCrowdsale.new(
       this.rate,
@@ -291,9 +300,45 @@ contract('WunbitTokenCrowdsale', function([_, wallet, contributor1, contributor2
           const paused = await this.token.paused();
           paused.should.be.false;
 
+          // Transfers ownership to the wallet
+          const owner = await this.token.owner();
+          owner.should.equal(this.wallet);
+
           // Prevents contributor from claiming refund
           await this.vault.refund(contributor1, { from: contributor1 }).should.be.rejectedWith(EVMRevert);
         });
+    });
+  });
+
+  describe('token distribution', function() {
+    it('tracks distribution correctly', async function() {
+      const foundersPercentage = await this.crowdsale.foundersPercentage();
+      foundersPercentage.should.be.bignumber.equal(this.foundersPercentage, 'has correct foundersPercentage');
+      const advisorsPercentage = await this.crowdsale.advisorsPercentage();
+      advisorsPercentage.should.be.bignumber.equal(this.advisorsPercentage, 'has correct advisorsPercentage');
+      const partnersPercentage = await this.crowdsale.partnersPercentage();
+      partnersPercentage.should.be.bignumber.equal(this.partnersPercentage, 'has correct partnersPercentage');
+      const teamPercentage = await this.crowdsale.teamPercentage();
+      teamPercentage.should.be.bignumber.equal(this.teamPercentage, 'has correct teamPercentage');
+      const marketingPercentage = await this.crowdsale.marketingPercentage();
+      marketingPercentage.should.be.bignumber.equal(this.marketingPercentage, 'has correct marketingPercentage');
+      const companyPercentage = await this.crowdsale.companyPercentage();
+      companyPercentage.should.be.bignumber.equal(this.companyPercentage, 'has correct companyPercentage');
+      const tokenSalePercentage = await this.crowdsale.tokenSalePercentage();
+      tokenSalePercentage.should.be.bignumber.equal(this.tokenSalePercentage, 'has correct tokenSalePercentage');
+    });
+
+    it('it is a valid percentage breakdown', async function() {
+      const foundersPercentage = await this.crowdsale.foundersPercentage();
+      const advisorsPercentage = await this.crowdsale.advisorsPercentage();
+      const partnersPercentage = await this.crowdsale.partnersPercentage();
+      const teamPercentage = await this.crowdsale.teamPercentage();
+      const marketingPercentage = await this.crowdsale.marketingPercentage();
+      const companyPercentage = await this.crowdsale.companyPercentage();
+      const tokenSalePercentage = await this.crowdsale.tokenSalePercentage();
+
+      const total = foundersPercentage.toNumber() + advisorsPercentage.toNumber() + partnersPercentage.toNumber() + teamPercentage.toNumber() + marketingPercentage.toNumber() + companyPercentage.toNumber() + tokenSalePercentage.toNumber();
+      total.should.equal(100);
     });
   });
 });

@@ -22,6 +22,15 @@ contract WunbitTokenCrowdsale is Crowdsale, MintedCrowdsale, CappedCrowdsale, Ti
   // Presale, Public Sale
   CrowdsaleStage public stage = CrowdsaleStage.PreSale;
 
+  // Token Distribution
+  uint256 public foundersPercentage  = 3;
+  uint256 public advisorsPercentage  = 3;
+  uint256 public partnersPercentage  = 3;
+  uint256 public teamPercentage      = 8;
+  uint256 public marketingPercentage = 8;
+  uint256 public companyPercentage   = 15;
+  uint256 public tokenSalePercentage = 60;
+
   constructor(
     uint256 _rate,
     address _wallet,
@@ -106,10 +115,12 @@ contract WunbitTokenCrowdsale is Crowdsale, MintedCrowdsale, CappedCrowdsale, Ti
    function finalization() internal {
      if(goalReached()) {
        MintableToken _mintableToken = MintableToken(token);
-       // Do more stuff for founders, partners
+       // Distribute tokens...
        _mintableToken.finishMinting();
        // Unpause the token
-       PausableToken(token).unpause();
+       PausableToken _pausableToken = PausableToken(token);
+       _pausableToken.unpause();
+       _pausableToken.transferOwnership(wallet);
      }
 
      super.finalization();
